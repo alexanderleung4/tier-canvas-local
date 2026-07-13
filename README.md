@@ -4,6 +4,12 @@
 
 ![16:9 主界面预览](output/playwright/final-16-9.png)
 
+## 教学视频
+
+不会用也没关系，跟着视频从上传图片到导出结果完整走一遍：
+
+▶ [观看《从夯到拉排版生成器》教学视频（Bilibili）](https://www.bilibili.com/video/BV1Z2NS6QEWz/?share_source=copy_web&vd_source=bb6dbbeca470fef6fefd9c56dcbedcd0)
+
 ## 功能
 
 - 多图上传：支持 PNG、JPG/JPEG、WebP，保留原比例、不裁切。
