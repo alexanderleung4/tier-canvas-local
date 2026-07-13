@@ -21,7 +21,9 @@
 
 ## 一键启动（Windows）
 
-安装 Node.js 20+ 后，直接双击仓库根目录中的 [`启动应用.bat`](启动应用.bat)。首次运行会自动安装依赖，随后打开本地开发服务器。
+直接双击仓库根目录中的 [`启动应用.bat`](启动应用.bat)。它会先检查 Node.js 20+：缺失或版本过低时，会通过 Windows Package Manager（`winget`）安装当前 Node.js LTS；Windows 仍会要求用户确认安装权限。没有 `winget` 时，脚本会自动打开 [Node.js 官方下载页](https://nodejs.org/en/download)。
+
+Node.js 安装完成后，再次双击启动文件即可自动安装项目依赖（首次）并打开本地开发服务器。
 
 也可以在终端运行：
 
