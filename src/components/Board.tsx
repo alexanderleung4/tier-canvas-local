@@ -9,8 +9,8 @@ import { useAppStore } from '../store'
 import type { RuntimeAsset, Tier } from '../types'
 import { useElementSize } from './useElementSize'
 
-interface ImageTileProps { id: string; containerId: string; index: number; size: number; presentation: boolean; exporting?: boolean }
-export function ImageTile({ id, containerId, index, size, presentation, exporting = false }: ImageTileProps) {
+interface ImageTileProps { id: string; containerId: string; index: number; size: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting?: boolean }
+export function ImageTile({ id, containerId, index, size, presentation, onPreviewImage, exporting = false }: ImageTileProps) {
   const asset = useAppStore((state) => state.assets[id])
   const selected = useAppStore((state) => state.selectedImageId === id)
   const selectImage = useAppStore((state) => state.selectImage)
@@ -27,6 +27,7 @@ export function ImageTile({ id, containerId, index, size, presentation, exportin
       {...drag.listeners}
       {...drag.attributes}
       onClick={(event) => { event.stopPropagation(); selectImage(id) }}
+      onDoubleClick={(event) => { event.stopPropagation(); selectImage(id); onPreviewImage(id) }}
       aria-label={`图片 ${asset.name}`}
       data-image-id={id}
       data-container-id={containerId}
@@ -37,8 +38,8 @@ export function ImageTile({ id, containerId, index, size, presentation, exportin
   )
 }
 
-interface ImageGridProps { tier: Tier; rowHeight: number; presentation: boolean; exporting: boolean }
-function TierImageGrid({ tier, rowHeight, presentation, exporting }: ImageGridProps) {
+interface ImageGridProps { tier: Tier; rowHeight: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean }
+function TierImageGrid({ tier, rowHeight, presentation, onPreviewImage, exporting }: ImageGridProps) {
   const { ref, width, height } = useElementSize<HTMLDivElement>()
   const drop = useDroppable({ id: `drop-container-${tier.id}`, data: { type: 'container', containerId: tier.id } })
   const layout = useMemo(() => calculateGrid(height || rowHeight, width || 800, tier.imageIds.length, 40, 4), [height, width, rowHeight, tier.imageIds.length])
@@ -47,7 +48,7 @@ function TierImageGrid({ tier, rowHeight, presentation, exporting }: ImageGridPr
   return (
     <div ref={setRef} className={`tier-grid-scroll ${drop.isOver ? 'is-over' : ''}`} data-testid={`tier-grid-${tier.name}`}>
       <div className="tier-grid" style={style}>
-        {tier.imageIds.map((id, index) => <ImageTile key={id} id={id} containerId={tier.id} index={index} size={layout.slotSize} presentation={presentation} exporting={exporting} />)}
+        {tier.imageIds.map((id, index) => <ImageTile key={id} id={id} containerId={tier.id} index={index} size={layout.slotSize} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />)}
         {!tier.imageIds.length && <span className="empty-drop-hint">拖入图片</span>}
       </div>
     </div>
@@ -90,18 +91,18 @@ function TierHeader({ tier, index, total, rowHeight, presentation }: TierHeaderP
   )
 }
 
-interface TierRowProps { tier: Tier; index: number; total: number; rowHeight: number; presentation: boolean; exporting: boolean }
-function TierRow({ tier, index, total, rowHeight, presentation, exporting }: TierRowProps) {
+interface TierRowProps { tier: Tier; index: number; total: number; rowHeight: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean }
+function TierRow({ tier, index, total, rowHeight, presentation, onPreviewImage, exporting }: TierRowProps) {
   const drop = useDroppable({ id: `drop-tier-${tier.id}`, data: { type: 'tier-target', tierId: tier.id, index } })
   return (
     <div ref={drop.setNodeRef} className={`tier-row ${drop.isOver ? 'tier-target' : ''}`} style={{ height: rowHeight }} data-tier-name={tier.name}>
       <TierHeader tier={tier} index={index} total={total} rowHeight={rowHeight} presentation={presentation} />
-      <TierImageGrid tier={tier} rowHeight={rowHeight} presentation={presentation} exporting={exporting} />
+      <TierImageGrid tier={tier} rowHeight={rowHeight} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />
     </div>
   )
 }
 
-function WaitingQueue({ presentation, exporting }: { presentation: boolean; exporting: boolean }) {
+function WaitingQueue({ presentation, onPreviewImage, exporting }: { presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean }) {
   const ids = useAppStore((state) => state.project.queueImageIds)
   const { ref, height } = useElementSize<HTMLDivElement>()
   const drop = useDroppable({ id: 'drop-container-queue', data: { type: 'container', containerId: QUEUE_ID } })
@@ -112,7 +113,7 @@ function WaitingQueue({ presentation, exporting }: { presentation: boolean; expo
       <div className="queue-label">等候区 <span>· {ids.length}</span></div>
       <div className="queue-scroll">
         <div className="queue-grid">
-          {ids.map((id, index) => <ImageTile key={id} id={id} containerId={QUEUE_ID} index={index} size={slot} presentation={presentation} exporting={exporting} />)}
+          {ids.map((id, index) => <ImageTile key={id} id={id} containerId={QUEUE_ID} index={index} size={slot} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />)}
           {!ids.length && <span className="queue-empty">上传图片后会出现在这里</span>}
         </div>
       </div>
@@ -131,8 +132,8 @@ export function TrashZone({ activeType }: { activeType: 'image' | 'tier' | null 
   )
 }
 
-interface BoardProps { presentation: boolean; activeType: 'image' | 'tier' | null; exporting?: boolean }
-export function Board({ presentation, activeType, exporting = false }: BoardProps) {
+interface BoardProps { presentation: boolean; activeType: 'image' | 'tier' | null; onPreviewImage: (id: string) => void; exporting?: boolean }
+export function Board({ presentation, activeType, onPreviewImage, exporting = false }: BoardProps) {
   const project = useAppStore((state) => state.project)
   const selectImage = useAppStore((state) => state.selectImage)
   const { ref: viewportRef, width: viewportWidth, height: viewportHeight } = useElementSize<HTMLDivElement>()
@@ -152,12 +153,12 @@ export function Board({ presentation, activeType, exporting = false }: BoardProp
           <div className="ranking-area" id="ranking-export">
             <div className="ranking-main">
               <div ref={listRef} className="tier-list">
-                {project.tiers.map((tier, index) => <TierRow key={tier.id} tier={tier} index={index} total={project.tiers.length} rowHeight={rowHeight} presentation={presentation} exporting={exporting} />)}
+                {project.tiers.map((tier, index) => <TierRow key={tier.id} tier={tier} index={index} total={project.tiers.length} rowHeight={rowHeight} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />)}
               </div>
               <TrashZone activeType={activeType} />
             </div>
           </div>
-          <WaitingQueue presentation={presentation} exporting={exporting} />
+          <WaitingQueue presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />
         </section>
       </div>
     </main>

@@ -18,14 +18,25 @@ test('上传、插入排序、层级操作、撤销与导出主流程', async ({
   await expect(rows.nth(0)).toHaveAttribute('data-tier-name', '夯')
   await expect(rows.nth(4)).toHaveAttribute('data-tier-name', '拉完了')
 
-  const fixture = path.resolve('reference-tier-list.png')
+  const fixture = path.resolve('output/playwright/final-16-9.png')
   await page.getByTestId('file-input').setInputFiles([fixture, fixture, fixture])
   const queueImages = page.locator('[data-container-id="queue"]')
+  await expect(queueImages).toHaveCount(3)
+
+  const imagePreview = page.getByTestId('image-zoom-overlay')
+  await queueImages.first().dblclick()
+  await expect(imagePreview).toBeVisible()
+  await page.keyboard.press('Delete')
+  await expect(imagePreview).toBeHidden()
   await expect(queueImages).toHaveCount(3)
 
   const tierGrid = page.getByTestId('tier-grid-夯')
   await drag(page, queueImages.nth(0), tierGrid)
   await expect(page.locator('[data-tier-name="夯"] [data-image-id]')).toHaveCount(1)
+  await page.locator('[data-tier-name="夯"] [data-image-id]').first().dblclick()
+  await expect(imagePreview).toBeVisible()
+  await imagePreview.click({ position: { x: 8, y: 8 } })
+  await expect(imagePreview).toBeHidden()
   await drag(page, queueImages.nth(0), page.locator('[data-tier-name="夯"] [data-image-id]').first(), { x: 0.08, y: 0.5 })
   await expect(page.locator('[data-tier-name="夯"] [data-image-id]')).toHaveCount(2)
 
