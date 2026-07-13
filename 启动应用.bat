@@ -1,30 +1,39 @@
 @echo off
-setlocal
-chcp 65001 >nul
-title 从夯到拉排版生成器
+setlocal EnableExtensions
+title Tier Canvas Launcher
 cd /d "%~dp0"
 
 where npm.cmd >nul 2>nul
 if errorlevel 1 (
-  echo 未检测到 Node.js / npm。
-  echo 请先安装 Node.js 20 或更高版本，然后重新双击本文件。
+  echo.
+  echo [ERROR] Node.js and npm were not found.
+  echo Install Node.js 20 or later, then run this file again.
+  echo.
   pause
   exit /b 1
 )
 
 if not exist "node_modules" (
-  echo 首次启动，正在安装依赖…
+  echo.
+  echo Installing project dependencies. This only happens on first launch.
+  echo.
   call npm.cmd install
   if errorlevel 1 (
     echo.
-    echo 依赖安装失败，请检查网络后重试。
+    echo [ERROR] Dependency installation failed. Check your network and try again.
+    echo.
     pause
     exit /b 1
   )
 )
 
-echo 正在启动从夯到拉排版生成器…
-echo 浏览器会自动打开；关闭本窗口或按 Ctrl+C 可停止服务。
+echo.
+echo Starting Tier Canvas Generator...
+echo Your browser will open at http://127.0.0.1:5173
+echo Keep this window open while using the app. Press Ctrl+C to stop it.
+echo.
 call npm.cmd run dev -- --open
 
-if errorlevel 1 pause
+echo.
+echo The development server has stopped.
+pause
