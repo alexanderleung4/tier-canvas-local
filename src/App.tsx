@@ -10,6 +10,7 @@ import { useAppStore } from './store'
 
 type ActiveItem = { type: 'image'; id: string } | { type: 'tier'; id: string } | null
 type ImagePreviewState = { id: string; closing: boolean } | null
+const autoScrollOptions = { canScroll: (element: Element) => element.classList.contains('tier-list') }
 
 export default function App() {
   const store = useAppStore()
@@ -112,7 +113,7 @@ export default function App() {
     <div className={`app-shell ${presentation ? 'presentation-mode' : ''} ${readyClass}`}>
       {!presentation && <Toolbar onClear={() => { setImagePreview(null); setClearOpen(true) }} onExport={() => { setImagePreview(null); setExportOpen(true) }} onPresentation={() => setPresentation(true)} />}
       {presentation && <button className="exit-presentation" type="button" onClick={() => setPresentation(false)}><X />退出演示</button>}
-      <DndContext sensors={sensors} collisionDetection={collisionDetection} autoScroll onDragStart={onDragStart} onDragCancel={() => setActive(null)} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={collisionDetection} autoScroll={autoScrollOptions} onDragStart={onDragStart} onDragCancel={() => setActive(null)} onDragEnd={onDragEnd}>
         <Board presentation={presentation} activeType={active?.type ?? null} onPreviewImage={(id) => setImagePreview({ id, closing: false })} exporting={exporting} />
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}><DragPreview type={active?.type ?? null} asset={activeAsset} tier={activeTier} /></DragOverlay>
       </DndContext>

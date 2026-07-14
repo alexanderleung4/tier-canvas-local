@@ -67,7 +67,8 @@ button { color: inherit; }
 .tier-grip { position: absolute; right: 2px; bottom: 3px; width: 13px; height: 13px; opacity: 0; transition: opacity 120ms; }
 .tier-header:hover .tier-grip { opacity: .38; }
 .tier-header input { width: 92%; min-width: 0; border: 1px solid rgba(0,0,0,.55); border-radius: 4px; outline: 2px solid white; background: rgba(255,255,255,.9); color: #111; font-size: 14px; padding: 5px 3px; text-align: center; }
-.tier-grid-scroll { position: relative; flex: 1 1 auto; min-width: 0; height: 100%; padding: 4px; overflow-x: auto; overflow-y: hidden; background: #c8c8c8; scrollbar-width: none; transition: background 140ms; }
+.tier-grid-scroll { position: relative; flex: 1 1 auto; min-width: 0; height: 100%; padding: 4px; overflow-x: hidden; overflow-y: hidden; background: #c8c8c8; scrollbar-width: none; transition: background 140ms; }
+.tier-grid-scroll.has-overflow { overflow-x: auto; }
 .tier-grid-scroll::-webkit-scrollbar, .queue-scroll::-webkit-scrollbar { display: none; }
 .tier-grid-scroll.is-over { background: #b8d8ce; }
 .tier-grid { position: relative; display: grid; grid-template-columns: repeat(auto-fill, var(--slot)); grid-auto-rows: var(--slot); gap: 4px; align-content: start; width: var(--content-width); min-width: 100%; height: 100%; }

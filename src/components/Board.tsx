@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { calculateGrid } from '../core/grid'
 import { QUEUE_ID } from '../core/project'
@@ -23,7 +22,7 @@ export function ImageTile({ id, containerId, index, size, presentation, onPrevie
       ref={setRef}
       type="button"
       className={`image-tile ${selected ? 'is-selected' : ''} ${drag.isDragging ? 'is-origin' : ''}`}
-      style={{ width: size, height: size, transform: CSS.Translate.toString(drag.transform) }}
+      style={{ width: size, height: size }}
       {...drag.listeners}
       {...drag.attributes}
       onClick={(event) => { event.stopPropagation(); selectImage(id) }}
@@ -46,7 +45,7 @@ function TierImageGrid({ tier, rowHeight, presentation, onPreviewImage, exportin
   const setRef = (node: HTMLDivElement | null) => { ref.current = node; drop.setNodeRef(node) }
   const style = { '--slot': `${layout.slotSize}px`, '--content-width': `${layout.contentWidth}px` } as CSSProperties
   return (
-    <div ref={setRef} className={`tier-grid-scroll ${drop.isOver ? 'is-over' : ''}`} data-testid={`tier-grid-${tier.name}`}>
+    <div ref={setRef} className={`tier-grid-scroll ${layout.overflow ? 'has-overflow' : ''} ${drop.isOver ? 'is-over' : ''}`} data-testid={`tier-grid-${tier.name}`}>
       <div className="tier-grid" style={style}>
         {tier.imageIds.map((id, index) => <ImageTile key={id} id={id} containerId={tier.id} index={index} size={layout.slotSize} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />)}
         {!tier.imageIds.length && <span className="empty-drop-hint">拖入图片</span>}
@@ -75,7 +74,7 @@ function TierHeader({ tier, index, total, rowHeight, presentation }: TierHeaderP
     <div
       ref={drag.setNodeRef}
       className={`tier-header ${drag.isDragging ? 'is-origin' : ''}`}
-      style={{ width: rowHeight, background: tierColor(index, total), transform: CSS.Translate.toString(drag.transform), fontSize }}
+      style={{ width: rowHeight, background: tierColor(index, total), fontSize }}
       title={tier.name}
       data-testid={`tier-header-${tier.name}`}
       {...(editing ? {} : drag.listeners)}
