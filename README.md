@@ -2,6 +2,10 @@
 
 一款完全在浏览器本地运行的中文 Tier List 排版、录制与 PNG 导出工具。图片与项目数据只保存在本机 IndexedDB，不会上传至服务器。
 
+## 在线使用
+
+无需下载或安装，直接打开：**[tier-canvas-local.vercel.app](https://tier-canvas-local.vercel.app/)**
+
 ![16:9 主界面预览](output/playwright/final-16-9.png)
 
 ## 教学视频
