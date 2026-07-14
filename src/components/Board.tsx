@@ -5,7 +5,7 @@ import { calculateGrid } from '../core/grid'
 import { QUEUE_ID } from '../core/project'
 import { tierColor } from '../core/colors'
 import { useAppStore } from '../store'
-import type { RuntimeAsset, Tier } from '../types'
+import type { ImageDropProjection, RuntimeAsset, Tier } from '../types'
 import { useElementSize } from './useElementSize'
 
 interface ImageTileProps { id: string; containerId: string; index: number; size: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting?: boolean }
@@ -14,7 +14,7 @@ export function ImageTile({ id, containerId, index, size, presentation, onPrevie
   const selected = useAppStore((state) => state.selectedImageId === id)
   const selectImage = useAppStore((state) => state.selectImage)
   const drag = useDraggable({ id: `drag-image-${id}`, data: { type: 'image', imageId: id, containerId, index } })
-  const drop = useDroppable({ id: `drop-image-${id}`, data: { type: 'image-target', imageId: id, containerId, index } })
+  const drop = useDroppable({ id: `drop-image-${id}`, disabled: drag.isDragging, data: { type: 'image-target', imageId: id, containerId, index } })
   if (!asset) return null
   const setRef = (node: HTMLElement | null) => { drag.setNodeRef(node); drop.setNodeRef(node) }
   return (
@@ -37,18 +37,73 @@ export function ImageTile({ id, containerId, index, size, presentation, onPrevie
   )
 }
 
-interface ImageGridProps { tier: Tier; rowHeight: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean }
-function TierImageGrid({ tier, rowHeight, presentation, onPreviewImage, exporting }: ImageGridProps) {
+function ImageDropPlaceholder({ imageId, containerId, index, size }: { imageId: string; containerId: string; index: number; size: number }) {
+  const asset = useAppStore((state) => state.assets[imageId])
+  const drop = useDroppable({ id: `drop-image-placeholder-${imageId}`, data: { type: 'projection-target', imageId, containerId, index } })
+  if (!asset) return null
+  return (
+    <div
+      ref={drop.setNodeRef}
+      className={`image-drop-placeholder ${drop.isOver ? 'is-over' : ''}`}
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+      data-placeholder-image-id={imageId}
+      data-placeholder-container-id={containerId}
+      data-placeholder-index={index}
+    >
+      <img src={asset.thumbnailUrl} alt="" draggable={false} />
+    </div>
+  )
+}
+
+type ProjectedItem = { type: 'image'; id: string; sourceIndex: number } | { type: 'placeholder' }
+
+function projectedItems(ids: string[], containerId: string, activeImageId: string | null, projection: ImageDropProjection | null): ProjectedItem[] {
+  const items: ProjectedItem[] = ids
+    .map((id, sourceIndex) => ({ type: 'image' as const, id, sourceIndex }))
+    .filter((item) => item.id !== activeImageId)
+  if (projection && projection.mode !== 'trash' && projection.targetContainerId === containerId) {
+    const index = Math.max(0, Math.min(projection.finalIndex, items.length))
+    items.splice(index, 0, { type: 'placeholder' })
+  }
+  return items
+}
+
+function ContainerImages({ ids, containerId, size, presentation, onPreviewImage, exporting, activeImageId, projection }: {
+  ids: string[]
+  containerId: string
+  size: number
+  presentation: boolean
+  onPreviewImage: (id: string) => void
+  exporting: boolean
+  activeImageId: string | null
+  projection: ImageDropProjection | null
+}) {
+  const activeIndex = activeImageId ? ids.indexOf(activeImageId) : -1
+  const items = projectedItems(ids, containerId, activeImageId, projection)
+  return (
+    <>
+      {activeIndex >= 0 && activeImageId && <ImageTile key={activeImageId} id={activeImageId} containerId={containerId} index={activeIndex} size={size} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />}
+      {items.map((item) => item.type === 'image'
+        ? <ImageTile key={item.id} id={item.id} containerId={containerId} index={item.sourceIndex} size={size} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />
+        : <ImageDropPlaceholder key={`placeholder-${activeImageId}`} imageId={activeImageId!} containerId={containerId} index={projection!.finalIndex} size={size} />)}
+    </>
+  )
+}
+
+interface ImageGridProps { tier: Tier; rowHeight: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean; activeImageId: string | null; projection: ImageDropProjection | null }
+function TierImageGrid({ tier, rowHeight, presentation, onPreviewImage, exporting, activeImageId, projection }: ImageGridProps) {
   const { ref, width, height } = useElementSize<HTMLDivElement>()
   const drop = useDroppable({ id: `drop-container-${tier.id}`, data: { type: 'container', containerId: tier.id } })
-  const layout = useMemo(() => calculateGrid(height || rowHeight, width || 800, tier.imageIds.length, 40, 4), [height, width, rowHeight, tier.imageIds.length])
+  const itemCount = projectedItems(tier.imageIds, tier.id, activeImageId, projection).length
+  const layout = useMemo(() => calculateGrid(height || rowHeight, width || 800, itemCount, 40, 4), [height, width, rowHeight, itemCount])
   const setRef = (node: HTMLDivElement | null) => { ref.current = node; drop.setNodeRef(node) }
   const style = { '--slot': `${layout.slotSize}px`, '--content-width': `${layout.contentWidth}px` } as CSSProperties
   return (
     <div ref={setRef} className={`tier-grid-scroll ${layout.overflow ? 'has-overflow' : ''} ${drop.isOver ? 'is-over' : ''}`} data-testid={`tier-grid-${tier.name}`}>
       <div className="tier-grid" style={style}>
-        {tier.imageIds.map((id, index) => <ImageTile key={id} id={id} containerId={tier.id} index={index} size={layout.slotSize} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />)}
-        {!tier.imageIds.length && <span className="empty-drop-hint">拖入图片</span>}
+        <ContainerImages ids={tier.imageIds} containerId={tier.id} size={layout.slotSize} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} activeImageId={activeImageId} projection={projection} />
+        {!itemCount && <span className="empty-drop-hint">拖入图片</span>}
       </div>
     </div>
   )
@@ -90,18 +145,18 @@ function TierHeader({ tier, index, total, rowHeight, presentation }: TierHeaderP
   )
 }
 
-interface TierRowProps { tier: Tier; index: number; total: number; rowHeight: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean }
-function TierRow({ tier, index, total, rowHeight, presentation, onPreviewImage, exporting }: TierRowProps) {
+interface TierRowProps { tier: Tier; index: number; total: number; rowHeight: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean; activeImageId: string | null; projection: ImageDropProjection | null }
+function TierRow({ tier, index, total, rowHeight, presentation, onPreviewImage, exporting, activeImageId, projection }: TierRowProps) {
   const drop = useDroppable({ id: `drop-tier-${tier.id}`, data: { type: 'tier-target', tierId: tier.id, index } })
   return (
     <div ref={drop.setNodeRef} className={`tier-row ${drop.isOver ? 'tier-target' : ''}`} style={{ height: rowHeight }} data-tier-name={tier.name}>
       <TierHeader tier={tier} index={index} total={total} rowHeight={rowHeight} presentation={presentation} />
-      <TierImageGrid tier={tier} rowHeight={rowHeight} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />
+      <TierImageGrid tier={tier} rowHeight={rowHeight} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} activeImageId={activeImageId} projection={projection} />
     </div>
   )
 }
 
-function WaitingQueue({ presentation, onPreviewImage, exporting }: { presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean }) {
+function WaitingQueue({ presentation, onPreviewImage, exporting, activeImageId, projection }: { presentation: boolean; onPreviewImage: (id: string) => void; exporting: boolean; activeImageId: string | null; projection: ImageDropProjection | null }) {
   const ids = useAppStore((state) => state.project.queueImageIds)
   const { ref, height } = useElementSize<HTMLDivElement>()
   const drop = useDroppable({ id: 'drop-container-queue', data: { type: 'container', containerId: QUEUE_ID } })
@@ -112,8 +167,8 @@ function WaitingQueue({ presentation, onPreviewImage, exporting }: { presentatio
       <div className="queue-label">等候区 <span>· {ids.length}</span></div>
       <div className="queue-scroll">
         <div className="queue-grid">
-          {ids.map((id, index) => <ImageTile key={id} id={id} containerId={QUEUE_ID} index={index} size={slot} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />)}
-          {!ids.length && <span className="queue-empty">上传图片后会出现在这里</span>}
+          <ContainerImages ids={ids} containerId={QUEUE_ID} size={slot} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} activeImageId={activeImageId} projection={projection} />
+          {!projectedItems(ids, QUEUE_ID, activeImageId, projection).length && <span className="queue-empty">上传图片后会出现在这里</span>}
         </div>
       </div>
     </div>
@@ -131,8 +186,8 @@ export function TrashZone({ activeType }: { activeType: 'image' | 'tier' | null 
   )
 }
 
-interface BoardProps { presentation: boolean; activeType: 'image' | 'tier' | null; onPreviewImage: (id: string) => void; exporting?: boolean }
-export function Board({ presentation, activeType, onPreviewImage, exporting = false }: BoardProps) {
+interface BoardProps { presentation: boolean; activeType: 'image' | 'tier' | null; activeImageId: string | null; imageProjection: ImageDropProjection | null; onPreviewImage: (id: string) => void; exporting?: boolean }
+export function Board({ presentation, activeType, activeImageId, imageProjection, onPreviewImage, exporting = false }: BoardProps) {
   const project = useAppStore((state) => state.project)
   const selectImage = useAppStore((state) => state.selectImage)
   const { ref: viewportRef, width: viewportWidth, height: viewportHeight } = useElementSize<HTMLDivElement>()
@@ -152,12 +207,12 @@ export function Board({ presentation, activeType, onPreviewImage, exporting = fa
           <div className="ranking-area" id="ranking-export">
             <div className="ranking-main">
               <div ref={listRef} className="tier-list">
-                {project.tiers.map((tier, index) => <TierRow key={tier.id} tier={tier} index={index} total={project.tiers.length} rowHeight={rowHeight} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />)}
+                {project.tiers.map((tier, index) => <TierRow key={tier.id} tier={tier} index={index} total={project.tiers.length} rowHeight={rowHeight} presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} activeImageId={activeImageId} projection={imageProjection} />)}
               </div>
               <TrashZone activeType={activeType} />
             </div>
           </div>
-          <WaitingQueue presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} />
+          <WaitingQueue presentation={presentation} onPreviewImage={onPreviewImage} exporting={exporting} activeImageId={activeImageId} projection={imageProjection} />
         </section>
       </div>
     </main>

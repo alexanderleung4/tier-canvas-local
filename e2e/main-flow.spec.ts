@@ -11,6 +11,41 @@ async function drag(page: Page, source: Locator, target: Locator, offset = { x: 
   await page.mouse.up()
 }
 
+async function startDrag(page: Page, source: Locator, target: Locator, offset = { x: 0.5, y: 0.5 }) {
+  const from = await source.boundingBox(); const to = await target.boundingBox()
+  if (!from || !to) throw new Error('拖拽元素不可见')
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2, { steps: 3 })
+  await page.mouse.move(to.x + to.width * offset.x, to.y + to.height * offset.y, { steps: 10 })
+}
+
+test('图片虚影跟随预测落点并在放下后成为真实位置', async ({ page }) => {
+  await page.goto('/')
+  const fixture = path.resolve('output/playwright/final-16-9.png')
+  await page.getByTestId('file-input').setInputFiles([fixture, fixture, fixture])
+  const queue = page.getByTestId('waiting-queue')
+  const queueImages = queue.locator('[data-image-id]')
+  const firstTierGrid = page.locator('.tier-grid-scroll').first()
+
+  await startDrag(page, queueImages.first(), firstTierGrid)
+  const placeholder = firstTierGrid.locator('.image-drop-placeholder')
+  await expect(placeholder).toHaveCount(1)
+  await expect(placeholder).toHaveAttribute('data-placeholder-index', '0')
+  await expect(firstTierGrid.locator('.empty-drop-hint')).toHaveCount(0)
+  await expect(queue.locator('.image-tile.is-origin')).toBeHidden()
+  await expect(queue.locator('.image-drop-placeholder')).toHaveCount(0)
+  await page.mouse.up()
+
+  await expect(firstTierGrid.locator('[data-image-id]')).toHaveCount(1)
+  await expect(page.locator('.image-drop-placeholder')).toHaveCount(0)
+
+  await startDrag(page, queueImages.first(), firstTierGrid, { x: 0.02, y: 0.5 })
+  await expect(firstTierGrid.locator('.image-drop-placeholder')).toHaveCount(1)
+  await page.mouse.up()
+  await expect(firstTierGrid.locator('[data-image-id]')).toHaveCount(2)
+})
+
 test('上传、插入排序、层级操作、撤销与导出主流程', async ({ page }) => {
   await page.goto('/')
   const rows = page.locator('.tier-row')

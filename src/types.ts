@@ -29,3 +29,13 @@ export interface RuntimeAsset extends ImageAssetRecord {
 }
 
 export interface ImageLocation { containerId: string; index: number }
+
+export interface ImageDropProjection {
+  imageId: ImageId
+  sourceContainerId: string
+  sourceIndex: number
+  targetContainerId: string
+  targetIndex: number
+  finalIndex: number
+  mode: 'original' | 'insert' | 'trash'
+}

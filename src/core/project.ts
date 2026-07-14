@@ -26,6 +26,16 @@ function listFor(project: ProjectState, containerId: string): ImageId[] | null {
   return project.tiers.find((tier) => tier.id === containerId)?.imageIds ?? null
 }
 
+export function resolveImageMoveIndex(project: ProjectState, imageId: ImageId, targetContainerId: string, targetIndex: number): number | null {
+  const source = findImage(project, imageId)
+  const target = listFor(project, targetContainerId)
+  if (!source || !target) return null
+  let adjustedIndex = targetIndex
+  if (source.containerId === targetContainerId && source.index < targetIndex) adjustedIndex -= 1
+  const targetLengthAfterRemoval = target.length - (source.containerId === targetContainerId ? 1 : 0)
+  return Math.max(0, Math.min(adjustedIndex, targetLengthAfterRemoval))
+}
+
 export function normalizeProject(project: ProjectState): ProjectState {
   const seen = new Set<ImageId>()
   const unique = (ids: ImageId[]) => ids.filter((id) => { if (seen.has(id)) return false; seen.add(id); return true })
@@ -38,15 +48,13 @@ export function normalizeProject(project: ProjectState): ProjectState {
 
 export function moveImage(project: ProjectState, imageId: ImageId, targetContainerId: string, targetIndex: number): ProjectState {
   const source = findImage(project, imageId)
+  const adjustedIndex = resolveImageMoveIndex(project, imageId, targetContainerId, targetIndex)
   const next = cloneProject(project)
   const target = listFor(next, targetContainerId)
-  if (!source || !target) return project
+  if (!source || !target || adjustedIndex === null) return project
   const sourceList = listFor(next, source.containerId)
   if (!sourceList) return project
   sourceList.splice(source.index, 1)
-  let adjustedIndex = targetIndex
-  if (source.containerId === targetContainerId && source.index < targetIndex) adjustedIndex -= 1
-  adjustedIndex = Math.max(0, Math.min(adjustedIndex, target.length))
   target.splice(adjustedIndex, 0, imageId)
   return normalizeProject(next)
 }

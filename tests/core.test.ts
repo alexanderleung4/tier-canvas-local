@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { tierColor } from '../src/core/colors'
 import { calculateGrid } from '../src/core/grid'
 import {
-  addImages, addTier, allImageIds, clearImages, createDefaultProject, moveImage,
+  addImages, addTier, allImageIds, clearImages, createDefaultProject, moveImage, resolveImageMoveIndex,
   moveTier, QUEUE_ID, removeTier, renameTier, resetTiers,
 } from '../src/core/project'
 
@@ -70,5 +70,14 @@ describe('行内 Grid', () => {
     expect(result.slotSize).toBeGreaterThanOrEqual(40)
     expect(result.overflow).toBe(true)
     expect(result.contentWidth).toBeGreaterThan(160)
+  })
+})
+
+describe('拖拽落点投影', () => {
+  it('预览索引与最终插入索引使用同一套规则', () => {
+    const project = addImages(createDefaultProject(), ['a', 'b', 'c', 'd'])
+    expect(resolveImageMoveIndex(project, 'a', QUEUE_ID, 3)).toBe(2)
+    expect(resolveImageMoveIndex(project, 'c', QUEUE_ID, 0)).toBe(0)
+    expect(resolveImageMoveIndex(project, 'b', project.tiers[0].id, 0)).toBe(0)
   })
 })
