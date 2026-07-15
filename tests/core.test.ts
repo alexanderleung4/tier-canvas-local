@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { tierColor } from '../src/core/colors'
 import { calculateGrid } from '../src/core/grid'
+import { containRect } from '../src/core/exportCanvas'
 import {
   addImages, addTier, allImageIds, clearImages, createDefaultProject, moveImage, resolveImageMoveIndex,
   moveTier, QUEUE_ID, removeTier, renameTier, resetTiers,
@@ -79,5 +80,12 @@ describe('拖拽落点投影', () => {
     expect(resolveImageMoveIndex(project, 'a', QUEUE_ID, 3)).toBe(2)
     expect(resolveImageMoveIndex(project, 'c', QUEUE_ID, 0)).toBe(0)
     expect(resolveImageMoveIndex(project, 'b', project.tiers[0].id, 0)).toBe(0)
+  })
+})
+
+describe('导出图片布局', () => {
+  it('横图和竖图都按 contain 规则居中且不裁切', () => {
+    expect(containRect({ x: 10, y: 20, width: 100, height: 100 }, 200, 100)).toEqual({ x: 10, y: 45, width: 100, height: 50 })
+    expect(containRect({ x: 10, y: 20, width: 100, height: 100 }, 100, 200)).toEqual({ x: 35, y: 20, width: 50, height: 100 })
   })
 })

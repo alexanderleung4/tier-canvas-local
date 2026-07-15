@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import path from 'node:path'
+import { readFile } from 'node:fs/promises'
 
 async function drag(page: Page, source: Locator, target: Locator, offset = { x: 0.5, y: 0.5 }) {
   const from = await source.boundingBox(); const to = await target.boundingBox()
@@ -18,6 +19,21 @@ async function startDrag(page: Page, source: Locator, target: Locator, offset = 
   await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2, { steps: 3 })
   await page.mouse.move(to.x + to.width * offset.x, to.y + to.height * offset.y, { steps: 10 })
+}
+
+async function readPngPixel(page: Page, filePath: string, sample: { x: number; y: number }) {
+  const dataUrl = `data:image/png;base64,${(await readFile(filePath)).toString('base64')}`
+  return page.evaluate(async ({ dataUrl, sample }) => {
+    const image = new Image()
+    image.src = dataUrl
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = image.naturalWidth
+    canvas.height = image.naturalHeight
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+    return [...context.getImageData(Math.floor(canvas.width * sample.x), Math.floor(canvas.height * sample.y), 1, 1).data]
+  }, { dataUrl, sample })
 }
 
 test('图片虚影跟随预测落点并在放下后成为真实位置', async ({ page }) => {
@@ -44,6 +60,68 @@ test('图片虚影跟随预测落点并在放下后成为真实位置', async ({
   await expect(firstTierGrid.locator('.image-drop-placeholder')).toHaveCount(1)
   await page.mouse.up()
   await expect(firstTierGrid.locator('[data-image-id]')).toHaveCount(2)
+})
+
+test('导出的 PNG 确实包含排行图片像素', async ({ page }) => {
+  await page.goto('/')
+  const redPng = await page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 16
+    canvas.height = 16
+    const context = canvas.getContext('2d')!
+    context.fillStyle = '#ff0000'
+    context.fillRect(0, 0, 16, 16)
+    return canvas.toDataURL('image/png').split(',')[1]
+  })
+  await page.getByTestId('file-input').setInputFiles({ name: 'red.png', mimeType: 'image/png', buffer: Buffer.from(redPng, 'base64') })
+  const queueImage = page.locator('[data-container-id="queue"]').first()
+  const tierGrid = page.locator('.tier-grid-scroll').first()
+  await drag(page, queueImage, tierGrid)
+
+  const sample = await tierGrid.locator('[data-image-id]').first().evaluate((tile) => {
+    const root = document.getElementById('ranking-export')!
+    const rootRect = root.getBoundingClientRect()
+    const tileRect = tile.getBoundingClientRect()
+    return {
+      x: (tileRect.left + tileRect.width / 2 - rootRect.left) / rootRect.width,
+      y: (tileRect.top + tileRect.height / 2 - rootRect.top) / rootRect.height,
+    }
+  })
+
+  await page.getByRole('button', { name: '导出 PNG' }).click()
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: /导出 2× PNG/ }).click()
+  const download = await downloadPromise
+  const downloadPath = await download.path()
+  if (!downloadPath) throw new Error('无法读取导出的 PNG')
+  const pixel = await readPngPixel(page, downloadPath, sample)
+  expect(pixel[0]).toBeGreaterThan(240)
+  expect(pixel[1]).toBeLessThan(20)
+  expect(pixel[2]).toBeLessThan(20)
+  expect(pixel[3]).toBe(255)
+
+  await expect(page.getByRole('dialog')).toBeHidden()
+  const fullSample = await tierGrid.locator('[data-image-id]').first().evaluate((tile) => {
+    const root = document.getElementById('tier-board')!
+    const rootRect = root.getBoundingClientRect()
+    const tileRect = tile.getBoundingClientRect()
+    return {
+      x: (tileRect.left + tileRect.width / 2 - rootRect.left) / rootRect.width,
+      y: (tileRect.top + tileRect.height / 2 - rootRect.top) / rootRect.height,
+    }
+  })
+  await page.getByRole('button', { name: '导出 PNG' }).click()
+  await page.getByRole('checkbox', { name: /包含等候区/ }).check()
+  await page.getByRole('button', { name: '1×' }).click()
+  const fullDownloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: /导出 1× PNG/ }).click()
+  const fullDownloadPath = await (await fullDownloadPromise).path()
+  if (!fullDownloadPath) throw new Error('无法读取包含等候区的 PNG')
+  const fullPixel = await readPngPixel(page, fullDownloadPath, fullSample)
+  expect(fullPixel[0]).toBeGreaterThan(240)
+  expect(fullPixel[1]).toBeLessThan(20)
+  expect(fullPixel[2]).toBeLessThan(20)
+  expect(fullPixel[3]).toBe(255)
 })
 
 test('上传、插入排序、层级操作、撤销与导出主流程', async ({ page }) => {

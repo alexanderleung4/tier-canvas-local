@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { closestCenter, DndContext, DragOverlay, PointerSensor, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core'
-import { toPng } from 'html-to-image'
 import { X } from 'lucide-react'
 import { Board, DragPreview } from './components/Board'
 import { ImagePreview } from './components/ImagePreview'
@@ -8,6 +7,7 @@ import { Toolbar } from './components/Toolbar'
 import { ConfirmDialog, ExportDialog } from './components/Dialogs'
 import { useAppStore } from './store'
 import { findImage, resolveImageMoveIndex } from './core/project'
+import { renderExportPng } from './core/exportCanvas'
 import type { ImageDropProjection } from './types'
 
 type ActiveItem = { type: 'image'; id: string } | { type: 'tier'; id: string } | null
@@ -171,19 +171,15 @@ export default function App() {
       await document.fonts.ready
       const root = document.getElementById(store.project.includeQueueOnExport ? 'tier-board' : 'ranking-export')
       if (!root) throw new Error('找不到导出画布')
-      await Promise.all([...root.querySelectorAll('img')].map((img) => img.decode().catch(() => undefined)))
-      const dataUrl = await toPng(root, {
-        pixelRatio: exportScale,
-        cacheBust: false,
-        backgroundColor: '#0b0d10',
-        filter: (node) => !(node instanceof HTMLElement && node.dataset.exportExclude === 'true'),
-      })
+      const { blob } = await renderExportPng(root, store.assets, exportScale)
+      const downloadUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.download = `从夯到拉-${Date.now()}.png`
-      link.href = dataUrl
+      link.href = downloadUrl
       document.body.append(link)
       link.click()
       link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60_000)
       store.notify('PNG 已生成')
       setExportOpen(false)
     } catch (error) { store.notify(error instanceof Error ? `导出失败：${error.message}` : '导出失败', 'error') }

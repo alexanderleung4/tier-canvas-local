@@ -9,7 +9,7 @@ import type { ImageDropProjection, RuntimeAsset, Tier } from '../types'
 import { useElementSize } from './useElementSize'
 
 interface ImageTileProps { id: string; containerId: string; index: number; size: number; presentation: boolean; onPreviewImage: (id: string) => void; exporting?: boolean }
-export function ImageTile({ id, containerId, index, size, presentation, onPreviewImage, exporting = false }: ImageTileProps) {
+export function ImageTile({ id, containerId, index, size, presentation, onPreviewImage }: ImageTileProps) {
   const asset = useAppStore((state) => state.assets[id])
   const selected = useAppStore((state) => state.selectedImageId === id)
   const selectImage = useAppStore((state) => state.selectImage)
@@ -32,7 +32,7 @@ export function ImageTile({ id, containerId, index, size, presentation, onPrevie
       data-container-id={containerId}
       title={presentation ? undefined : asset.name}
     >
-      <img src={exporting ? asset.originalUrl : asset.thumbnailUrl} alt={asset.name} draggable={false} />
+      <img src={asset.thumbnailUrl} alt={asset.name} draggable={false} />
     </button>
   )
 }
