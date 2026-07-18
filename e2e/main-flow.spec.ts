@@ -36,6 +36,22 @@ async function readPngPixel(page: Page, filePath: string, sample: { x: number; y
   }, { dataUrl, sample })
 }
 
+async function setRankingColor(page: Page, color: string) {
+  await page.getByTestId('ranking-color-input').fill(color)
+}
+
+async function dragRankingColor(page: Page, colors: string[]) {
+  await page.getByTestId('ranking-color-input').evaluate(async (input, values) => {
+    const colorInput = input as HTMLInputElement
+    for (const value of values) {
+      colorInput.value = value
+      colorInput.dispatchEvent(new Event('input', { bubbles: true }))
+      await new Promise(requestAnimationFrame)
+    }
+    colorInput.dispatchEvent(new Event('change', { bubbles: true }))
+  }, colors)
+}
+
 test('图片虚影跟随预测落点并在放下后成为真实位置', async ({ page }) => {
   await page.goto('/')
   const fixture = path.resolve('output/playwright/final-16-9.png')
@@ -62,8 +78,52 @@ test('图片虚影跟随预测落点并在放下后成为真实位置', async ({
   await expect(firstTierGrid.locator('[data-image-id]')).toHaveCount(2)
 })
 
+test('排行底色可调整、撤销并在刷新后恢复，图片槽位保持透明', async ({ page }) => {
+  await page.goto('/')
+  await dragRankingColor(page, ['#345678', '#234567', '#123456'])
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#123456')
+  await expect(page.locator('.tier-grid-scroll').first()).toHaveCSS('background-color', 'rgb(18, 52, 86)')
+  await page.getByRole('button', { name: '撤销' }).click()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#c8c8c8')
+  await page.getByRole('button', { name: '重做' }).click()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#123456')
+
+  const redPng = await page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 8
+    canvas.height = 8
+    const context = canvas.getContext('2d')!
+    context.fillStyle = '#ff0000'
+    context.fillRect(0, 0, 8, 8)
+    return canvas.toDataURL('image/png').split(',')[1]
+  })
+  await page.getByTestId('file-input').setInputFiles({ name: 'transparent-slot.png', mimeType: 'image/png', buffer: Buffer.from(redPng, 'base64') })
+  await expect(page.locator('.image-tile').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+
+  await page.getByRole('button', { name: '撤销' }).click()
+  await page.getByRole('button', { name: '撤销' }).click()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#c8c8c8')
+  await page.getByRole('button', { name: '重做' }).click()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#123456')
+  await page.waitForTimeout(300)
+  await page.reload()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#123456')
+  await expect(page.locator('.tier-grid-scroll').first()).toHaveCSS('background-color', 'rgb(18, 52, 86)')
+  await page.getByRole('button', { name: '恢复默认排行底色' }).click()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#c8c8c8')
+  await page.getByRole('button', { name: '撤销' }).click()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#123456')
+  await page.getByRole('button', { name: '恢复初始设定' }).click()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#c8c8c8')
+  await page.getByRole('button', { name: '撤销' }).click()
+  await expect(page.getByTestId('ranking-color-input')).toHaveValue('#123456')
+})
+
 test('导出的 PNG 确实包含排行图片像素', async ({ page }) => {
   await page.goto('/')
+  await setRankingColor(page, '#123456')
+  await page.waitForTimeout(300)
+  await page.reload()
   const redPng = await page.evaluate(() => {
     const canvas = document.createElement('canvas')
     canvas.width = 16
@@ -77,6 +137,8 @@ test('导出的 PNG 确实包含排行图片像素', async ({ page }) => {
   const queueImage = page.locator('[data-container-id="queue"]').first()
   const tierGrid = page.locator('.tier-grid-scroll').first()
   await drag(page, queueImage, tierGrid)
+  await expect(page.locator('.drag-preview')).toHaveCount(0)
+  await page.waitForTimeout(200)
 
   const sample = await tierGrid.locator('[data-image-id]').first().evaluate((tile) => {
     const root = document.getElementById('ranking-export')!
@@ -89,6 +151,7 @@ test('导出的 PNG 确实包含排行图片像素', async ({ page }) => {
   })
 
   await page.getByRole('button', { name: '导出 PNG' }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: /导出 2× PNG/ }).click()
   const download = await downloadPromise
@@ -99,6 +162,8 @@ test('导出的 PNG 确实包含排行图片像素', async ({ page }) => {
   expect(pixel[1]).toBeLessThan(20)
   expect(pixel[2]).toBeLessThan(20)
   expect(pixel[3]).toBe(255)
+  const backgroundPixel = await readPngPixel(page, downloadPath, { x: 0.8, y: 0.9 })
+  expect(backgroundPixel).toEqual([18, 52, 86, 255])
 
   await expect(page.getByRole('dialog')).toBeHidden()
   const fullSample = await tierGrid.locator('[data-image-id]').first().evaluate((tile) => {
@@ -111,6 +176,7 @@ test('导出的 PNG 确实包含排行图片像素', async ({ page }) => {
     }
   })
   await page.getByRole('button', { name: '导出 PNG' }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByRole('checkbox', { name: /包含等候区/ }).check()
   await page.getByRole('button', { name: '1×' }).click()
   const fullDownloadPromise = page.waitForEvent('download')

@@ -3,7 +3,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { calculateGrid } from '../core/grid'
 import { QUEUE_ID } from '../core/project'
-import { tierColor } from '../core/colors'
+import { rankingContrastColors, tierColor } from '../core/colors'
 import { useAppStore } from '../store'
 import type { ImageDropProjection, RuntimeAsset, Tier } from '../types'
 import { useElementSize } from './useElementSize'
@@ -195,13 +195,23 @@ export function Board({ presentation, activeType, activeImageId, imageProjection
   const dimensions = project.aspectRatio === '16:9' ? { width: 1280, height: 720 } : project.aspectRatio === '9:16' ? { width: 720, height: 1280 } : { width: 900, height: 900 }
   const scale = Math.min((viewportWidth - 24) / dimensions.width, (viewportHeight - 24) / dimensions.height, 1)
   const rowHeight = Math.max(56, (listHeight || dimensions.height * 0.8) / project.tiers.length)
+  const contrast = rankingContrastColors(project.rankingColor)
+  const boardStyle = {
+    width: dimensions.width,
+    height: dimensions.height,
+    transform: `scale(${scale})`,
+    '--ranking-color': project.rankingColor,
+    '--ranking-divider': contrast.divider,
+    '--ranking-hint': contrast.hint,
+    '--ranking-hover': contrast.hover,
+  } as CSSProperties
   return (
     <main ref={viewportRef} className="canvas-viewport" onClick={() => selectImage(null)}>
       <div className="canvas-scaler" style={{ width: dimensions.width * scale, height: dimensions.height * scale }}>
         <section
           id="tier-board"
           className={`tier-board ${exporting ? 'is-exporting' : ''}`}
-          style={{ width: dimensions.width, height: dimensions.height, transform: `scale(${scale})` }}
+          style={boardStyle}
           data-aspect-ratio={project.aspectRatio}
         >
           <div className="ranking-area" id="ranking-export">

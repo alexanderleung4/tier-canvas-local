@@ -1,12 +1,13 @@
 import type { ImageId, ImageLocation, ProjectState, Tier, TierId } from '../types'
 
 export const DEFAULT_TIER_NAMES = ['夯', '顶级', '人上人', 'NPC', '拉完了'] as const
+export const DEFAULT_RANKING_COLOR = '#C8C8C8'
 export const QUEUE_ID = 'queue'
 const randomId = () => typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 const makeTier = (name: string, index: number): Tier => ({ id: `tier-${index + 1}-${randomId()}`, name, imageIds: [] })
 
 export function createDefaultProject(): ProjectState {
-  return { version: 1, tiers: DEFAULT_TIER_NAMES.map(makeTier), queueImageIds: [], aspectRatio: '16:9', includeQueueOnExport: false }
+  return { version: 1, tiers: DEFAULT_TIER_NAMES.map(makeTier), queueImageIds: [], aspectRatio: '16:9', rankingColor: DEFAULT_RANKING_COLOR, includeQueueOnExport: false }
 }
 export function cloneProject(project: ProjectState): ProjectState { return structuredClone(project) }
 export function allImageIds(project: ProjectState): ImageId[] { return [...project.queueImageIds, ...project.tiers.flatMap((tier) => tier.imageIds)] }
@@ -26,6 +27,10 @@ function listFor(project: ProjectState, containerId: string): ImageId[] | null {
   return project.tiers.find((tier) => tier.id === containerId)?.imageIds ?? null
 }
 
+export function normalizeRankingColor(value: unknown): string {
+  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : DEFAULT_RANKING_COLOR
+}
+
 export function resolveImageMoveIndex(project: ProjectState, imageId: ImageId, targetContainerId: string, targetIndex: number): number | null {
   const source = findImage(project, imageId)
   const target = listFor(project, targetContainerId)
@@ -41,6 +46,7 @@ export function normalizeProject(project: ProjectState): ProjectState {
   const unique = (ids: ImageId[]) => ids.filter((id) => { if (seen.has(id)) return false; seen.add(id); return true })
   return {
     ...project,
+    rankingColor: normalizeRankingColor(project.rankingColor),
     tiers: project.tiers.length ? project.tiers.map((tier) => ({ ...tier, imageIds: unique(tier.imageIds) })) : [makeTier('夯', 0)],
     queueImageIds: unique(project.queueImageIds),
   }

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { tierColor } from '../src/core/colors'
+import { rankingContrastColors, tierColor } from '../src/core/colors'
 import { calculateGrid } from '../src/core/grid'
 import { containRect } from '../src/core/exportCanvas'
 import {
-  addImages, addTier, allImageIds, clearImages, createDefaultProject, moveImage, resolveImageMoveIndex,
+  addImages, addTier, allImageIds, clearImages, createDefaultProject, DEFAULT_RANKING_COLOR, moveImage, normalizeProject, resolveImageMoveIndex,
   moveTier, QUEUE_ID, removeTier, renameTier, resetTiers,
 } from '../src/core/project'
 
@@ -87,5 +87,21 @@ describe('导出图片布局', () => {
   it('横图和竖图都按 contain 规则居中且不裁切', () => {
     expect(containRect({ x: 10, y: 20, width: 100, height: 100 }, 200, 100)).toEqual({ x: 10, y: 45, width: 100, height: 50 })
     expect(containRect({ x: 10, y: 20, width: 100, height: 100 }, 100, 200)).toEqual({ x: 35, y: 20, width: 50, height: 100 })
+  })
+})
+
+describe('排行底色', () => {
+  it('新旧项目都能得到默认灰色，非法颜色会被修正', () => {
+    expect(createDefaultProject().rankingColor).toBe(DEFAULT_RANKING_COLOR)
+    const oldProject = createDefaultProject() as Partial<ReturnType<typeof createDefaultProject>>
+    delete oldProject.rankingColor
+    expect(normalizeProject(oldProject as ReturnType<typeof createDefaultProject>).rankingColor).toBe(DEFAULT_RANKING_COLOR)
+    expect(normalizeProject({ ...createDefaultProject(), rankingColor: 'not-a-color' }).rankingColor).toBe(DEFAULT_RANKING_COLOR)
+    expect(resetTiers({ ...createDefaultProject(), rankingColor: '#123456' }).rankingColor).toBe(DEFAULT_RANKING_COLOR)
+  })
+
+  it('深浅背景使用不同的高对比分隔线和提示色', () => {
+    expect(rankingContrastColors('#101820').divider).toContain('255,255,255')
+    expect(rankingContrastColors('#F2F2F2').divider).toContain('0,0,0')
   })
 })

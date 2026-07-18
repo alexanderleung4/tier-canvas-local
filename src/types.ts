@@ -9,6 +9,7 @@ export interface ProjectState {
   tiers: Tier[]
   queueImageIds: ImageId[]
   aspectRatio: AspectRatio
+  rankingColor: string
   includeQueueOnExport: boolean
 }
 

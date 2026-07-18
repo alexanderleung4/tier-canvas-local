@@ -4,12 +4,14 @@ import {
   addImages, addTier as addTierPure, clearImages as clearImagesPure, createDefaultProject,
   moveImage as moveImagePure, moveTier as moveTierPure, removeImage as removeImagePure,
   removeTier as removeTierPure, renameTier as renameTierPure, resetTiers,
+  normalizeRankingColor,
 } from './core/project'
 import { loadWorkspace, persistWorkspace, runtimeAsset } from './db'
 import { processImage } from './imageProcessing'
 
 const HISTORY_LIMIT = 80
 let persistTimer: number | undefined
+let rankingColorEditStart: ProjectState | null = null
 const schedulePersist = (project: ProjectState, assets: Record<string, RuntimeAsset>) => {
   window.clearTimeout(persistTimer)
   persistTimer = window.setTimeout(() => void persistWorkspace(project, assets).catch(() => useAppStore.getState().notify('本地保存失败，请检查浏览器存储空间', 'error')), 180)
@@ -37,6 +39,9 @@ interface AppStore {
   clearImages: () => void
   reset: () => void
   setAspectRatio: (ratio: AspectRatio) => void
+  setRankingColor: (color: string) => void
+  previewRankingColor: (color: string) => void
+  commitRankingColorEdit: (color: string) => void
   setIncludeQueue: (include: boolean) => void
   undo: () => void
   redo: () => void
@@ -53,6 +58,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch { set({ ready: true }); get().notify('无法读取本地项目，已使用初始设定', 'error') }
   },
   commit: (project) => set((state) => {
+    rankingColorEditStart = null
     if (JSON.stringify(state.project) === JSON.stringify(project)) return state
     const next = { project, past: [...state.past.slice(-(HISTORY_LIMIT - 1)), state.project], future: [] }
     schedulePersist(project, state.assets); return next
@@ -82,17 +88,45 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   renameTier: (id, name) => get().commit(renameTierPure(get().project, id, name)),
   clearImages: () => { get().commit(clearImagesPure(get().project)); set({ selectedImageId: null }); get().notify('所有图片已清空，可撤销') },
-  reset: () => { get().commit(resetTiers(get().project)); get().notify('已恢复初始层级，图片保留在等候区') },
+  reset: () => { get().commit(resetTiers(get().project)); get().notify('已恢复初始设定，图片保留在等候区') },
   setAspectRatio: (aspectRatio) => get().commit({ ...get().project, aspectRatio }),
+  setRankingColor: (rankingColor) => get().commit({ ...get().project, rankingColor: normalizeRankingColor(rankingColor) }),
+  previewRankingColor: (color) => set((state) => {
+    const rankingColor = normalizeRankingColor(color)
+    if (state.project.rankingColor === rankingColor) return state
+    if (!rankingColorEditStart) rankingColorEditStart = state.project
+    return { project: { ...state.project, rankingColor } }
+  }),
+  commitRankingColorEdit: (color) => set((state) => {
+    const rankingColor = normalizeRankingColor(color)
+    const project = { ...state.project, rankingColor }
+    const start = rankingColorEditStart
+    rankingColorEditStart = null
+    if (!start) {
+      if (state.project.rankingColor === rankingColor) return state
+      const next = { project, past: [...state.past.slice(-(HISTORY_LIMIT - 1)), state.project], future: [] }
+      schedulePersist(project, state.assets)
+      return next
+    }
+    if (start.rankingColor === rankingColor) {
+      schedulePersist(project, state.assets)
+      return { project }
+    }
+    const next = { project, past: [...state.past.slice(-(HISTORY_LIMIT - 1)), start], future: [] }
+    schedulePersist(project, state.assets)
+    return next
+  }),
   setIncludeQueue: (includeQueueOnExport) => set((state) => {
     const project = { ...state.project, includeQueueOnExport }; schedulePersist(project, state.assets); return { project }
   }),
   undo: () => set((state) => {
+    rankingColorEditStart = null
     const previous = state.past.at(-1); if (!previous) return state
     schedulePersist(previous, state.assets)
     return { project: previous, past: state.past.slice(0, -1), future: [state.project, ...state.future].slice(0, HISTORY_LIMIT) }
   }),
   redo: () => set((state) => {
+    rankingColorEditStart = null
     const next = state.future[0]; if (!next) return state
     schedulePersist(next, state.assets)
     return { project: next, past: [...state.past, state.project].slice(-HISTORY_LIMIT), future: state.future.slice(1) }

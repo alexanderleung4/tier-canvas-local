@@ -12,3 +12,17 @@ export function tierColor(index: number, total: number): string {
   const a = hexToRgb(ANCHORS[left]); const b = hexToRgb(ANCHORS[right])
   return `#${a.map((value, channel) => toHex(value + (b[channel] - value) * mix)).join('')}`
 }
+
+export function rankingContrastColors(hex: string) {
+  const [red, green, blue] = hexToRgb(hex).map((value) => {
+    const channel = value / 255
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  })
+  const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+  const dark = luminance < 0.34
+  return {
+    divider: dark ? 'rgba(255,255,255,.30)' : 'rgba(0,0,0,.38)',
+    hint: dark ? 'rgba(255,255,255,.62)' : 'rgba(17,24,28,.55)',
+    hover: dark ? 'rgba(255,255,255,.34)' : 'rgba(0,0,0,.28)',
+  }
+}
