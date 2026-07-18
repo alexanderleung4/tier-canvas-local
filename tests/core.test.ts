@@ -97,7 +97,7 @@ describe('排行底色', () => {
     delete oldProject.rankingColor
     expect(normalizeProject(oldProject as ReturnType<typeof createDefaultProject>).rankingColor).toBe(DEFAULT_RANKING_COLOR)
     expect(normalizeProject({ ...createDefaultProject(), rankingColor: 'not-a-color' }).rankingColor).toBe(DEFAULT_RANKING_COLOR)
-    expect(resetTiers({ ...createDefaultProject(), rankingColor: '#123456' }).rankingColor).toBe(DEFAULT_RANKING_COLOR)
+    expect(resetTiers({ ...createDefaultProject(), rankingColor: '#123456' }).rankingColor).toBe('#123456')
   })
 
   it('深浅背景使用不同的高对比分隔线和提示色', () => {

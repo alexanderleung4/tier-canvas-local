@@ -102,5 +102,5 @@ export function clearImages(project: ProjectState): ProjectState {
 }
 export function resetTiers(project: ProjectState): ProjectState {
   const reset = createDefaultProject()
-  return { ...reset, aspectRatio: project.aspectRatio, includeQueueOnExport: project.includeQueueOnExport, queueImageIds: allImageIds(project) }
+  return { ...reset, aspectRatio: project.aspectRatio, rankingColor: project.rankingColor, includeQueueOnExport: project.includeQueueOnExport, queueImageIds: allImageIds(project) }
 }

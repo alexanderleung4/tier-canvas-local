@@ -88,7 +88,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   renameTier: (id, name) => get().commit(renameTierPure(get().project, id, name)),
   clearImages: () => { get().commit(clearImagesPure(get().project)); set({ selectedImageId: null }); get().notify('所有图片已清空，可撤销') },
-  reset: () => { get().commit(resetTiers(get().project)); get().notify('已恢复初始设定，图片保留在等候区') },
+  reset: () => { get().commit(resetTiers(get().project)); get().notify('已恢复初始层级，排行底色保持不变，图片保留在等候区') },
   setAspectRatio: (aspectRatio) => get().commit({ ...get().project, aspectRatio }),
   setRankingColor: (rankingColor) => get().commit({ ...get().project, rankingColor: normalizeRankingColor(rankingColor) }),
   previewRankingColor: (color) => set((state) => {
